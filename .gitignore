@@ -10,3 +10,6 @@ chat_logs.db
 # Generated retrieval artifacts.
 vector_index.json.gz
 vector_index.json
+
+
+visual_Identity/*
