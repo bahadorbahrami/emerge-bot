@@ -189,9 +189,10 @@ footer{padding:44px 52px;border-top:1px solid var(--g2);display:flex;align-items
 .es-greeting-row{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
 .es-logo-slot{height:28px;display:flex;align-items:center;flex-shrink:0;}
 .es-logo-slot img{height:28px;width:auto;display:block;}
-.es-greeting{font-size:26px;font-weight:800;letter-spacing:-.4px;color:var(--bk);text-align:left;}
+.es-greeting{font-size:26px;font-weight:800;letter-spacing:-.4px;color:var(--p);text-align:left;}
 .es-input-wrap{width:100%;max-width:640px;margin-bottom:14px;}
 .privacy-note{max-width:640px;text-align:center;font-size:11px;color:var(--g3);margin:-4px 0 14px;line-height:1.45;}
+.lang-note{max-width:640px;text-align:center;font-size:14px;color:var(--g3);line-height:1.5;background:var(--g1);border-radius:8px;padding:10px 16px;margin:0 0 14px;}
 .prompt-guide{max-width:640px;text-align:center;font-size:12px;color:var(--g3);line-height:1.5;margin:-2px 0 12px;}
 .mode-control{display:flex;align-items:center;justify-content:center;gap:8px;max-width:640px;margin:0 0 14px;flex-wrap:wrap;}
 .mode-label{font-size:11px;color:var(--g3);font-weight:700;}
@@ -601,7 +602,7 @@ footer{padding:24px;align-items:flex-start;gap:14px;flex-direction:column;}
   <footer><div class="f-fund-block"><img class="f-fund-logo" src="/assets/eu-eic-funding.svg?v=1" alt="Funded by the European Union"><p class="f-fund-text" data-i18n="footer.funding_disclaimer">Funded by the European Union under Grant Agreement 101070918. Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or European Innovation Council. Neither the European Union nor the granting authority can be held responsible for them.</p></div><div class="f-right"><div class="f-links"><a class="f-link" href="https://eic-emerge.eu/" target="_blank" rel="noopener" data-i18n="footer.about_emerge">About EMERGE</a><a class="f-link" href="https://www.mi3.info/" target="_blank" rel="noopener">mi3.info ↗</a></div><span class="f-copy">© 2025 MI3 · LMU München</span></div></footer>
 </div>
 
-<div id="pg-bot" class="pg">
+<div id="pg-bot" class="pg" lang="en">
   <div class="bot-pg">
     <div class="empty-state" id="empty">
       <div class="es-greeting-row">
@@ -615,6 +616,7 @@ footer{padding:24px;align-items:flex-start;gap:14px;flex-direction:column;}
         </div>
       </div>
       <div class="prompt-guide" data-i18n="bot.prompt_guide">Type a question, scenario, or rough idea. More context helps the bot retrieve better EMERGE sources; for example, ask about benefits of machine awareness, responsibility gaps, trust, or ethical resilience.</div>
+      <div class="lang-note">This assistant currently answers in English only. Support for additional languages is planned for a future update.</div>
       <div class="privacy-note"><span data-i18n="bot.privacy_note">Chats may be logged to improve the bot and analyze failures. Do not enter personal or sensitive information.</span> <a class="status-link" onclick="show('legal')" data-i18n="footer.disclaimer_privacy">Disclaimer & Privacy</a></div>
       <div class="mode-control" aria-label="Answer mode">
         <span class="mode-label" data-i18n="bot.mode_label">Mode</span>
@@ -698,6 +700,74 @@ const LOGO = '/assets/emerge-logo.svg?v=1';
 const chatLogoSlot = document.getElementById('chat-logo-slot');
 if (chatLogoSlot && LOGO) {
   chatLogoSlot.innerHTML = '<img src="' + LOGO + '" alt="">';
+}
+
+// ── i18n runtime ──
+let currentLang = localStorage.getItem('emergeLang') || 'en';
+
+function i18nGet(lang, path) {
+  const parts = path.split('.');
+  let node = I18N[lang];
+  for (let i = 0; i < parts.length; i++) {
+    if (node == null) return null;
+    node = node[parts[i]];
+  }
+  return node;
+}
+
+function applyI18n(lang) {
+  if (!I18N[lang]) lang = 'en';
+  document.documentElement.lang = lang;
+  // The Ask the Bot page stays English-only (see .lang-note on that page) — skip its subtree entirely.
+  const inBotPage = function(el) { return !!el.closest('#pg-bot'); };
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    if (inBotPage(el)) return;
+    const val = i18nGet(lang, el.getAttribute('data-i18n'));
+    if (typeof val === 'string') el.textContent = val;
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(function(el) {
+    if (inBotPage(el)) return;
+    const val = i18nGet(lang, el.getAttribute('data-i18n-html'));
+    if (typeof val === 'string') el.innerHTML = val;
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    if (inBotPage(el)) return;
+    const val = i18nGet(lang, el.getAttribute('data-i18n-placeholder'));
+    if (typeof val === 'string') el.placeholder = val;
+  });
+  const langBtn = document.getElementById('lang-current');
+  if (langBtn) langBtn.textContent = lang.toUpperCase() + ' ▾';
+  document.querySelectorAll('.lang-menu button').forEach(function(b) {
+    b.classList.toggle('on', b.getAttribute('data-lang') === lang);
+  });
+}
+
+function toggleLangMenu() {
+  const menu = document.getElementById('lang-menu');
+  if (menu) menu.classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.lang-switch')) {
+    const menu = document.getElementById('lang-menu');
+    if (menu) menu.classList.remove('open');
+  }
+});
+
+function setLanguage(lang) {
+  currentLang = I18N[lang] ? lang : 'en';
+  localStorage.setItem('emergeLang', currentLang);
+  applyI18n(currentLang);
+  const menu = document.getElementById('lang-menu');
+  if (menu) menu.classList.remove('open');
+  if (typeof renderSources === 'function' && typeof sourcesLoaded !== 'undefined' && sourcesLoaded) renderSources();
+  if (typeof currentChecklistRole !== 'undefined' && currentChecklistRole) {
+    const active = document.querySelector('.rt.on');
+    if (active) setRole(active, currentChecklistRole);
+  }
+  if (typeof setAnswerMode === 'function' && typeof answerMode !== 'undefined') {
+    setAnswerMode(answerMode);
+  }
 }
 
 // ── Page navigation ──
@@ -1176,8 +1246,12 @@ function setAnswerMode(mode) {
   document.querySelectorAll('.mode-btn').forEach(function(btn) {
     btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
   });
+  // Ask the Bot page stays English-only regardless of the site language.
+  const botT = I18N.en.bot;
+  const hintKey = { accurate: 'mode_hint_accurate', balanced: 'mode_hint_balanced', brainstorm: 'mode_hint_brainstorm' }[mode];
+  const hintText = botT[hintKey] || answerModeHints[mode];
   document.querySelectorAll('.mode-hint').forEach(function(el) {
-    el.textContent = answerModeHints[mode];
+    el.textContent = hintText;
   });
 }
 
@@ -1287,8 +1361,9 @@ async function sendMsg() {
   msgs.appendChild(um);
   scrollDown();
 
-  // Typing indicator
-  const ty = appendBotMsg('<span style="color:var(--g3);font-style:italic;">Searching corpus...</span>');
+  // Typing indicator — Ask the Bot page stays English-only regardless of the site language.
+  const botT = I18N.en.bot;
+  const ty = appendBotMsg('<span style="color:var(--g3);font-style:italic;">' + esc(botT.searching_corpus) + '</span>');
 
   isLoading = true;
   setSendControlsDisabled(true);
